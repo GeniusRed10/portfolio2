@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { SplitText } from "gsap/SplitText";
 import { useGSAP } from "@gsap/react";
 import Lenis from "lenis";
 import Script from "next/script";
+import Image from "next/image";
 import { withBasePath } from "@/utils/base-path";
 
 import Menu from "@/components/Menu";
@@ -229,8 +230,35 @@ export default function Home() {
   const videoFramesRef = useRef({ frame: 0 });
   const lenisRef = useRef(null);
   const [isReady, setIsReady] = useState(false);
+  const [gsapLoaded, setGsapLoaded] = useState(false);
 
-  // Preload all frame images
+  // Prevent scroll until everything is ready
+  useEffect(() => {
+    if (!isReady || !gsapLoaded) {
+      // Lock scroll
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+    } else {
+      // Unlock scroll when ready
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    }
+
+    return () => {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    };
+  }, [isReady, gsapLoaded]);
+
+  // Initialize GSAP and mark as loaded
+  useEffect(() => {
+    // GSAP is already imported synchronously, so it's ready
+    if (typeof gsap !== 'undefined' && ScrollTrigger) {
+      setGsapLoaded(true);
+    }
+  }, []);
+
+  // Preload all frame images with priority loading
   useEffect(() => {
     const frameCount = 207;
     let loadedCount = 0;
@@ -243,10 +271,15 @@ export default function Home() {
       }
     };
 
+    // Load first 10 frames with high priority
     for (let i = 0; i < frameCount; i++) {
-      const img = new Image();
+      const img = new window.Image();
       img.onload = checkAllLoaded;
       img.onerror = checkAllLoaded;
+      // Use fetchpriority for first frames
+      if (i < 10) {
+        img.fetchPriority = 'high';
+      }
       img.src = withBasePath(`/frames/frame_${(i + 1).toString().padStart(4, "0")}.jpg`);
       images.push(img);
     }
@@ -339,19 +372,7 @@ export default function Home() {
         { scale: 1, duration: 2, ease: "power2.out" }
       );
 
-      // Hero text elements
-      const heroName = document.querySelector(".hero-name");
-      const heroTitle = document.querySelector(".hero-title");
-      const scrollIndicator = document.querySelector(".scroll-indicator");
-      const scrollArrow = document.querySelector(".scroll-arrow");
-
-      // Set initial states
-      gsap.set(heroName, { opacity: 1, y: 0, scale: 1 });
-      gsap.set(heroTitle, { opacity: 0, y: 50, scale: 0.9 });
-      gsap.set(scrollIndicator, { opacity: 0.8 });
-      gsap.set(scrollArrow, { opacity: 0.6 });
-
-      // Create combined hero scroll animation
+      // Create hero scroll animation (frames only, no text)
       ScrollTrigger.create({
         trigger: ".hero",
         start: "top top",
@@ -366,48 +387,6 @@ export default function Home() {
           const targetFrame = Math.min(Math.round(progress * (frameCount - 1)), frameCount - 1);
           videoFramesRef.current.frame = targetFrame;
           render();
-
-          // Phase 1 (0-25%): Name visible, then fades out with scale
-          // Phase 2 (25-50%): Title fades in with scale
-          // Phase 3 (50-75%): Title visible
-          // Phase 4 (75-100%): Everything fades out before About section
-
-          if (progress <= 0.25) {
-            // Phase 1: Name visible and starts fading
-            const fadeProgress = progress / 0.25;
-            gsap.set(heroName, { 
-              opacity: 1 - fadeProgress,
-              y: fadeProgress * -80,
-              scale: 1 - fadeProgress * 0.2
-            });
-            gsap.set(heroTitle, { opacity: 0, y: 50, scale: 0.9 });
-            gsap.set(scrollIndicator, { opacity: 0.8 - fadeProgress * 0.8 });
-            gsap.set(scrollArrow, { opacity: 0.6 - fadeProgress * 0.6 });
-          } else if (progress <= 0.5) {
-            // Phase 2: Title fades in with same animation style
-            const roleProgress = (progress - 0.25) / 0.25;
-            gsap.set(heroName, { opacity: 0 });
-            gsap.set(heroTitle, { 
-              opacity: roleProgress,
-              y: 50 - roleProgress * 50,
-              scale: 0.9 + roleProgress * 0.1
-            });
-            gsap.set(scrollIndicator, { opacity: 0 });
-            gsap.set(scrollArrow, { opacity: 0 });
-          } else if (progress <= 0.75) {
-            // Phase 3: Title fully visible
-            gsap.set(heroName, { opacity: 0 });
-            gsap.set(heroTitle, { opacity: 1, y: 0, scale: 1 });
-          } else {
-            // Phase 4: Title fades out before About section
-            const fadeOutProgress = (progress - 0.75) / 0.25;
-            gsap.set(heroName, { opacity: 0 });
-            gsap.set(heroTitle, { 
-              opacity: 1 - fadeOutProgress,
-              y: fadeOutProgress * -80,
-              scale: 1 - fadeOutProgress * 0.2
-            });
-          }
 
           // Hero content container z-depth effect
           if (progress <= 0.15) {
@@ -689,6 +668,15 @@ export default function Home() {
     { scope: containerRef, dependencies: [isReady] }
   );
 
+  // Show loading screen until ready
+  if (!isReady || !gsapLoaded) {
+    return (
+      <div className="loading-screen">
+        <div className="loading-spinner"></div>
+      </div>
+    );
+  }
+
   return (
     <>
       <Script
@@ -710,12 +698,7 @@ export default function Home() {
           <canvas ref={canvasRef}></canvas>
           <div className="hero-content">
             <div className="header" ref={heroContentRef}>
-              <h1 className="hero-name">Romeo Lagarto</h1>
-              <p className="hero-title">Support Engineer</p>
-              <p className="scroll-indicator">Scroll Down</p>
-              <div className="scroll-arrow">
-                <ion-icon name="chevron-down-outline"></ion-icon>
-              </div>
+              {/* Hero content - intentionally minimal */}
             </div>
           </div>
         </section>
