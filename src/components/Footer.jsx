@@ -3,11 +3,11 @@
 import { useEffect, useRef } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import Script from "next/script";
 
 const Footer = () => {
   const containerRef = useRef(null);
   const physicsInitialized = useRef(false);
+  const animationFrameRef = useRef(null);
 
   const skillTags = [
     // Core Tech
@@ -182,8 +182,10 @@ const Footer = () => {
       }, 3000);
 
       const mouse = Matter.Mouse.create(container);
+      // Remove wheel events to allow smooth scrolling past the footer
       mouse.element.removeEventListener("mousewheel", mouse.mousewheel);
       mouse.element.removeEventListener("DOMMouseScroll", mouse.mousewheel);
+      mouse.element.removeEventListener("wheel", mouse.mousewheel);
 
       mouseConstraint = Matter.MouseConstraint.create(engine, {
         mouse: mouse,
@@ -273,69 +275,93 @@ const Footer = () => {
           element.style.transform = `rotate(${body.angle}rad)`;
         });
 
-        requestAnimationFrame(updatePositions);
+        animationFrameRef.current = requestAnimationFrame(updatePositions);
       }
       updatePositions();
     }
 
-    // Initialize physics when footer comes into view
+    // Initialize physics when footer comes into view using ScrollTrigger (works with Lenis)
+    ScrollTrigger.create({
+      trigger: containerRef.current,
+      start: "top 90%",
+      once: true,
+      onEnter: () => {
+        const container = containerRef.current?.querySelector(".object-container");
+        if (container) {
+          // Small delay to ensure elements are fully rendered and measurable
+          setTimeout(() => {
+            const checkMatter = () => {
+              if (typeof Matter !== "undefined") {
+                initPhysics(container);
+              } else {
+                setTimeout(checkMatter, 100);
+              }
+            };
+            checkMatter();
+          }, 100);
+        }
+      },
+    });
+
+    // Also use IntersectionObserver as fallback
     const initObserver = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             const container = containerRef.current?.querySelector(".object-container");
             if (container) {
-              // Wait for Matter.js to be available
-              const checkMatter = () => {
-                if (typeof Matter !== "undefined") {
-                  initPhysics(container);
-                } else {
-                  setTimeout(checkMatter, 100);
-                }
-              };
-              checkMatter();
+              setTimeout(() => {
+                const checkMatter = () => {
+                  if (typeof Matter !== "undefined") {
+                    initPhysics(container);
+                  } else {
+                    setTimeout(checkMatter, 100);
+                  }
+                };
+                checkMatter();
+              }, 100);
             }
             initObserver.disconnect();
           }
         });
       },
-      { threshold: 0.1 }
+      { threshold: 0.01 }
     );
 
     if (containerRef.current) {
       initObserver.observe(containerRef.current);
     }
 
+    // Refresh ScrollTrigger when footer is visible to ensure proper scroll calculation
+    ScrollTrigger.refresh();
+
     return () => {
       initObserver.disconnect();
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
       if (runner) Matter.Runner.stop(runner);
       if (engine) Matter.Engine.clear(engine);
     };
   }, []);
 
   return (
-    <>
-      <Script
-        src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"
-        strategy="beforeInteractive"
-      />
-      <section id="footer" className="footer" ref={containerRef}>
-        <div className="object-container">
-          {skillTags.map((tag, index) => (
-            <div key={index} className="physics-object">
-              <p>{tag}</p>
-            </div>
-          ))}
-        </div>
+    <section id="footer" className="footer" ref={containerRef}>
+      <div className="object-container" data-lenis-prevent>
+        {skillTags.map((tag, index) => (
+          <div key={index} className="physics-object">
+            <p>{tag}</p>
+          </div>
+        ))}
+      </div>
 
-        <div className="footer-content">
-          <h1>Let&apos;s build something amazing together.</h1>
-          <p className="footer-copyright">
-            &copy; {new Date().getFullYear()} Romeo Lagarto. All rights reserved.
-          </p>
-        </div>
-      </section>
-    </>
+      <div className="footer-content">
+        <h1>Let&apos;s build something amazing together.</h1>
+        <p className="footer-copyright">
+          &copy; {new Date().getFullYear()} Romeo Lagarto. All rights reserved.
+        </p>
+      </div>
+    </section>
   );
 };
 

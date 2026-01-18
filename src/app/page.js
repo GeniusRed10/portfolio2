@@ -689,6 +689,10 @@ export default function Home() {
   return (
     <>
       <Script
+        src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"
+        strategy="afterInteractive"
+      />
+      <Script
         type="module"
         src="https://cdnjs.cloudflare.com/ajax/libs/ionicons/7.1.0/ionicons/ionicons.esm.js"
         strategy="afterInteractive"
