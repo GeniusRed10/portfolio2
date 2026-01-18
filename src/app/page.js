@@ -672,7 +672,16 @@ export default function Home() {
   if (!isReady || !gsapLoaded) {
     return (
       <div className="loading-screen">
-        <div className="loading-spinner"></div>
+        <div className="loading-content">
+          <div className="loading-logo">
+            <img src={withBasePath("/logo.png")} alt="Logo" className="logo-image" />
+            <div className="logo-circle"></div>
+          </div>
+          <div className="loading-bar-container">
+            <div className="loading-bar"></div>
+          </div>
+          <p className="loading-text">Loading Experience...</p>
+        </div>
       </div>
     );
   }
