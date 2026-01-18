@@ -261,7 +261,7 @@ export default function Home() {
 
   // Preload all frame images with priority loading
   useEffect(() => {
-    const frameCount = 303;
+    const frameCount = 806;
     let loadedCount = 0;
     const images = [];
 
@@ -332,7 +332,7 @@ export default function Home() {
 
       setCanvasSize();
 
-      const frameCount = 303;
+      const frameCount = 806;
       const images = imagesRef.current;
 
       const render = () => {
@@ -742,6 +742,14 @@ export default function Home() {
           <div className="hero-content">
             <div className="header" ref={heroContentRef}>
               {/* Hero content - intentionally minimal */}
+            </div>
+          </div>
+          
+          {/* Scroll Indicator */}
+          <div className="scroll-indicator">
+            <div className="scroll-indicator-text">Scroll</div>
+            <div className="scroll-indicator-line">
+              <div className="scroll-indicator-dot"></div>
             </div>
           </div>
         </section>
