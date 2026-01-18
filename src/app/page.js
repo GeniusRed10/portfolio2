@@ -261,7 +261,7 @@ export default function Home() {
 
   // Preload all frame images with priority loading
   useEffect(() => {
-    const frameCount = 806;
+    const frameCount = 201;
     let loadedCount = 0;
     const images = [];
 
@@ -332,7 +332,7 @@ export default function Home() {
 
       setCanvasSize();
 
-      const frameCount = 806;
+      const frameCount = 201;
       const images = imagesRef.current;
 
       const render = () => {
