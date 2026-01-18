@@ -229,6 +229,7 @@ export default function Home() {
   const imagesRef = useRef([]);
   const videoFramesRef = useRef({ frame: 0 });
   const lenisRef = useRef(null);
+  const introCompleteRef = useRef(false);
   const [isReady, setIsReady] = useState(false);
   const [gsapLoaded, setGsapLoaded] = useState(false);
 
@@ -260,7 +261,7 @@ export default function Home() {
 
   // Preload all frame images with priority loading
   useEffect(() => {
-    const frameCount = 207;
+    const frameCount = 303;
     let loadedCount = 0;
     const images = [];
 
@@ -331,7 +332,7 @@ export default function Home() {
 
       setCanvasSize();
 
-      const frameCount = 207;
+      const frameCount = 303;
       const images = imagesRef.current;
 
       const render = () => {
@@ -363,27 +364,56 @@ export default function Home() {
         }
       };
 
-      // Initial render
+      // Start with the last frame for reverse intro animation
+      videoFramesRef.current.frame = frameCount - 1;
+      introCompleteRef.current = false;
       render();
 
-      // Initial zoom animation on load
+      // Disable Lenis during intro animation
+      if (lenisRef.current) {
+        lenisRef.current.stop();
+      }
+
+      // Reverse frame animation: play frames from last to first after preloader
+      const reverseIntroTl = gsap.timeline({
+        onComplete: () => {
+          introCompleteRef.current = true;
+          // Re-enable Lenis after intro
+          if (lenisRef.current) {
+            lenisRef.current.start();
+          }
+        }
+      });
+      
+      reverseIntroTl.to(videoFramesRef.current, {
+        frame: 0,
+        duration: 8,
+        ease: "power1.inOut",
+        snap: { frame: 1 },
+        onUpdate: render,
+      });
+
+      // Initial zoom animation on load (runs alongside reverse frames)
       gsap.fromTo(canvas, 
         { scale: 1.3 },
-        { scale: 1, duration: 2, ease: "power2.out" }
+        { scale: 1, duration: 8, ease: "power1.out" }
       );
 
       // Create hero scroll animation (frames only, no text)
       ScrollTrigger.create({
         trigger: ".hero",
         start: "top top",
-        end: `+=${window.innerHeight * 6}px`,
+        end: `+=${window.innerHeight * 12}px`,
         pin: true,
         pinSpacing: true,
         scrub: 0.5,
         onUpdate: (self) => {
+          // Only allow scroll-based frame updates after intro is complete
+          if (!introCompleteRef.current) return;
+          
           const progress = self.progress;
 
-          // Frame animation - use all 207 frames across the scroll
+          // Frame animation - use all 303 frames across the scroll
           const targetFrame = Math.min(Math.round(progress * (frameCount - 1)), frameCount - 1);
           videoFramesRef.current.frame = targetFrame;
           render();
