@@ -232,6 +232,18 @@ export default function Home() {
   const introCompleteRef = useRef(false);
   const [isReady, setIsReady] = useState(false);
   const [gsapLoaded, setGsapLoaded] = useState(false);
+  const [showPreloader, setShowPreloader] = useState(true);
+
+  // Fade out preloader with transition animation when ready
+  useEffect(() => {
+    if (isReady && gsapLoaded && showPreloader) {
+      // Fade out preloader, then hide after full transition (600ms fade + 100ms buffer)
+      const timer = setTimeout(() => {
+        setShowPreloader(false);
+      }, 700);
+      return () => clearTimeout(timer);
+    }
+  }, [isReady, gsapLoaded, showPreloader]);
 
   // Prevent scroll until everything is ready
   useEffect(() => {
@@ -268,11 +280,12 @@ export default function Home() {
     const checkAllLoaded = () => {
       loadedCount++;
       if (loadedCount >= frameCount) {
+        imagesRef.current = images;
         setIsReady(true);
       }
     };
 
-    // Load first 10 frames with high priority
+    // Load all frames with priority on first ones
     for (let i = 0; i < frameCount; i++) {
       const img = new window.Image();
       img.onload = checkAllLoaded;
@@ -284,8 +297,6 @@ export default function Home() {
       img.src = withBasePath(`/frames/ezgif-frame-${(i + 1).toString().padStart(3, "0")}.jpg`);
       images.push(img);
     }
-
-    imagesRef.current = images;
   }, []);
 
   // Initialize Lenis smooth scroll
@@ -313,6 +324,7 @@ export default function Home() {
   // Hero frame animation
   useGSAP(
     () => {
+      // Wait until images are loaded
       if (!isReady) return;
 
       const canvas = canvasRef.current;
@@ -332,8 +344,11 @@ export default function Home() {
 
       setCanvasSize();
 
-      const frameCount = 91;
+      // 91 frames - at 3 seconds = ~30fps for smooth playback
       const images = imagesRef.current;
+      const frameCount = images.length;
+      
+      if (frameCount === 0) return;
 
       const render = () => {
         const canvasWidth = window.innerWidth;
@@ -341,7 +356,9 @@ export default function Home() {
 
         context.clearRect(0, 0, canvasWidth, canvasHeight);
 
-        const img = images[videoFramesRef.current.frame];
+        // Round frame index to get valid array index
+        const frameIndex = Math.round(videoFramesRef.current.frame);
+        const img = images[frameIndex];
         if (img && img.complete && img.naturalWidth > 0) {
           const imageAspect = img.naturalWidth / img.naturalHeight;
           const canvasAspect = canvasWidth / canvasHeight;
@@ -376,6 +393,7 @@ export default function Home() {
 
       // Forward frame animation: play frames from first to last after preloader
       const forwardIntroTl = gsap.timeline({
+        delay: 0.5,
         onComplete: () => {
           introCompleteRef.current = true;
           // Show scroll indicator after intro completes
@@ -390,21 +408,18 @@ export default function Home() {
         }
       });
       
+      // Use gsap ticker for smoother frame updates
       forwardIntroTl.to(videoFramesRef.current, {
         frame: frameCount - 1,
         duration: 3,
         ease: "none",
-        onUpdate: () => {
-          // Round the frame value for rendering but don't snap during animation
-          videoFramesRef.current.frame = Math.round(videoFramesRef.current.frame);
-          render();
-        },
+        onUpdate: render,
       });
 
       // Initial zoom animation on load (runs alongside forward frames)
       gsap.fromTo(canvas, 
         { scale: 1.3 },
-        { scale: 1, duration: 3, ease: "power1.out" }
+        { scale: 1, duration: 3, delay: 0.5, ease: "power1.out" }
       );
 
       // Create hero scroll animation (frames play in REVERSE on scroll)
@@ -706,26 +721,25 @@ export default function Home() {
     { scope: containerRef, dependencies: [isReady] }
   );
 
-  // Show loading screen until ready
-  if (!isReady || !gsapLoaded) {
-    return (
-      <div className="loading-screen">
-        <div className="loading-content">
-          <div className="loading-logo">
-            <img src={withBasePath("/logo.png")} alt="Logo" className="logo-image" />
-            <div className="logo-circle"></div>
-          </div>
-          <div className="loading-bar-container">
-            <div className="loading-bar"></div>
-          </div>
-          <p className="loading-text">Loading Experience...</p>
-        </div>
-      </div>
-    );
-  }
-
+  // Render loading screen as overlay + main content always in DOM
   return (
     <>
+      {/* Preloader Overlay */}
+      {showPreloader && (
+        <div className={`loading-screen ${isReady && gsapLoaded ? 'fade-out' : ''}`}>
+          <div className="loading-content">
+            <div className="loading-logo">
+              <img src={withBasePath("/logo.png")} alt="Logo" className="logo-image" />
+              <div className="logo-circle"></div>
+            </div>
+            <div className="loading-bar-container">
+              <div className="loading-bar"></div>
+            </div>
+            <p className="loading-text">Loading Experience...</p>
+          </div>
+        </div>
+      )}
+
       <Script
         src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"
         strategy="afterInteractive"
