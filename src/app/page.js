@@ -426,10 +426,10 @@ export default function Home() {
       ScrollTrigger.create({
         trigger: ".hero",
         start: "top top",
-        end: `+=${window.innerHeight * 12}px`,
+        end: `+=${window.innerHeight * 6}px`,
         pin: true,
         pinSpacing: true,
-        scrub: 0.5,
+        scrub: true,
         onUpdate: (self) => {
           // Only allow scroll-based frame updates after intro is complete
           if (!introCompleteRef.current) return;
