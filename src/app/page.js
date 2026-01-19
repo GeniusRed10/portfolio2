@@ -261,7 +261,7 @@ export default function Home() {
 
   // Preload all frame images with priority loading
   useEffect(() => {
-    const frameCount = 201;
+    const frameCount = 91;
     let loadedCount = 0;
     const images = [];
 
@@ -281,7 +281,7 @@ export default function Home() {
       if (i < 10) {
         img.fetchPriority = 'high';
       }
-      img.src = withBasePath(`/frames/frame_${(i + 1).toString().padStart(4, "0")}.jpg`);
+      img.src = withBasePath(`/frames/ezgif-frame-${(i + 1).toString().padStart(3, "0")}.jpg`);
       images.push(img);
     }
 
@@ -332,7 +332,7 @@ export default function Home() {
 
       setCanvasSize();
 
-      const frameCount = 201;
+      const frameCount = 91;
       const images = imagesRef.current;
 
       const render = () => {
@@ -364,8 +364,8 @@ export default function Home() {
         }
       };
 
-      // Start with the last frame for reverse intro animation
-      videoFramesRef.current.frame = frameCount - 1;
+      // Start with the first frame for forward intro animation
+      videoFramesRef.current.frame = 0;
       introCompleteRef.current = false;
       render();
 
@@ -374,10 +374,15 @@ export default function Home() {
         lenisRef.current.stop();
       }
 
-      // Reverse frame animation: play frames from last to first after preloader
-      const reverseIntroTl = gsap.timeline({
+      // Forward frame animation: play frames from first to last after preloader
+      const forwardIntroTl = gsap.timeline({
         onComplete: () => {
           introCompleteRef.current = true;
+          // Show scroll indicator after intro completes
+          const scrollIndicator = document.querySelector('.scroll-indicator');
+          if (scrollIndicator) {
+            scrollIndicator.classList.add('show');
+          }
           // Re-enable Lenis after intro
           if (lenisRef.current) {
             lenisRef.current.start();
@@ -385,21 +390,24 @@ export default function Home() {
         }
       });
       
-      reverseIntroTl.to(videoFramesRef.current, {
-        frame: 0,
-        duration: 8,
-        ease: "power1.inOut",
-        snap: { frame: 1 },
-        onUpdate: render,
+      forwardIntroTl.to(videoFramesRef.current, {
+        frame: frameCount - 1,
+        duration: 3,
+        ease: "none",
+        onUpdate: () => {
+          // Round the frame value for rendering but don't snap during animation
+          videoFramesRef.current.frame = Math.round(videoFramesRef.current.frame);
+          render();
+        },
       });
 
-      // Initial zoom animation on load (runs alongside reverse frames)
+      // Initial zoom animation on load (runs alongside forward frames)
       gsap.fromTo(canvas, 
         { scale: 1.3 },
-        { scale: 1, duration: 8, ease: "power1.out" }
+        { scale: 1, duration: 3, ease: "power1.out" }
       );
 
-      // Create hero scroll animation (frames only, no text)
+      // Create hero scroll animation (frames play in REVERSE on scroll)
       ScrollTrigger.create({
         trigger: ".hero",
         start: "top top",
@@ -412,9 +420,9 @@ export default function Home() {
           if (!introCompleteRef.current) return;
           
           const progress = self.progress;
-
-          // Frame animation - use all 303 frames across the scroll
-          const targetFrame = Math.min(Math.round(progress * (frameCount - 1)), frameCount - 1);
+          
+          // Frame animation - REVERSE: start from last frame and go to first frame on scroll
+          const targetFrame = Math.max(Math.round((1 - progress) * (frameCount - 1)), 0);
           videoFramesRef.current.frame = targetFrame;
           render();
 
@@ -747,10 +755,11 @@ export default function Home() {
           
           {/* Scroll Indicator */}
           <div className="scroll-indicator">
-            <div className="scroll-indicator-text">Scroll</div>
-            <div className="scroll-indicator-line">
-              <div className="scroll-indicator-dot"></div>
-            </div>
+            <img 
+              src={withBasePath("/scroll.png")} 
+              alt="Scroll" 
+              className="scroll-indicator-image"
+            />
           </div>
         </section>
 
